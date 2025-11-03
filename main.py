@@ -3,7 +3,7 @@ import cv2
 from classifier import load_model, predict_crop
 
 # modo atualmente e em imagem estatica, mas posso mudar, "webcam" ou "imagem"
-MODE = "webcam"  # troque para "webcam" para usar a câmera do computador
+MODE = "imagem"  # troque para "webcam" para usar a câmera do computador
 
 # carrega o classificador treinado
 classifier_model = load_model("models/waste_classifier.h5")
