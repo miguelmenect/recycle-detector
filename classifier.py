@@ -59,112 +59,129 @@ def train(data_dir, model_out="models/waste_classifier.h5", epochs=30):
 def load_model(path):
     return tf.keras.models.load_model(path)
 
+#capta caractersticas especficas do vidro 
 def analyze_glass_characteristics(img):
-    """Detecta características específicas de vidro"""
+    #converte cor para cinza para melhor detecção
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # 1. BRILHO INTENSO - vidro reflete muito mais luz
+    #detecta brilho e reflexos do objeto da imagem (vidro reflete mais luz)
+    #calcula quantidade em % de pixels brilhantes na imagem
     _, very_bright = cv2.threshold(gray, 250, 255, cv2.THRESH_BINARY)
     very_bright_ratio = np.sum(very_bright) / very_bright.size
     
     _, bright = cv2.threshold(gray, 235, 255, cv2.THRESH_BINARY)
     bright_ratio = np.sum(bright) / bright.size
     
-    # 2. CONTRASTE ALTO - vidro tem áreas muito claras e escuras
+    # identifica o padrão de contraste na textura com partes mais escuras e claras
     contrast = gray.std()
     
-    # 3. REFLEXOS ESPECULARES (pontos muito brilhantes concentrados)
+    # analisa os reflexos/manchas birlhantes na textura do vidro, "conta" quantidade de reflexos
     kernel = np.ones((5,5), np.uint8)
     dilated_bright = cv2.dilate(very_bright, kernel, iterations=1)
     num_bright_clusters = cv2.connectedComponents(dilated_bright)[0] - 1
-    
+
+    #retorno de 4 caracteristicas com valores de carcteristicas de padrão de vidro
     return very_bright_ratio, bright_ratio, contrast, num_bright_clusters
 
+#detecção dos amassados/deformidades no objeto (plastico costuma ser um material mais amassado)
 def detect_crushing_deformation(img):
-    """Detecta se há amassamento - CRUCIAL: vidro não amassa, só plástico!"""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # 1. VINCOS/DOBRAS - linhas escuras de amassamento
+    # detecta linhas escuras de amassamento e dobras
     laplacian = cv2.Laplacian(gray, cv2.CV_64F, ksize=3)
     sharp_edges = np.abs(laplacian)
     
-    # Detecta linhas de vinco (mudanças bruscas de intensidade)
+    # detecta linhas de vinco/amassados (mudanças bruscas de intensidade)
     _, crease_mask = cv2.threshold(sharp_edges, np.percentile(sharp_edges, 90), 255, cv2.THRESH_BINARY)
+    #calcula quantidade em porcentagem da imagem tem esses vincos/amassados
     crease_ratio = np.sum(crease_mask > 0) / crease_mask.size
     
-    # 2. IRREGULARIDADES NA SUPERFÍCIE - amassamento cria padrões caóticos
-    # Usa filtro de mediana para detectar variações locais
+    # analisa as irregularidades na superficie do obejto
+    #filtro de medianablur remove ruídos, manchas sujeiras e demais variações
     median = cv2.medianBlur(gray, 5)
     surface_variation = np.abs(gray.astype(float) - median.astype(float))
+    #calcula a diferença entre a imagem original e filtrada
     high_variation = np.sum(surface_variation > 15) / surface_variation.size
     
-    # 3. TEXTURA CAÓTICA - amassamento cria padrão não-uniforme
-    # Compara variância em pequenas janelas
     kernel_size = 7
+    #calcula a média local da intensidade dos pixels dentro da janela (suaviza variações pequenas)
     mean_local = cv2.blur(gray.astype(float), (kernel_size, kernel_size))
     variance_local = cv2.blur((gray.astype(float) - mean_local)**2, (kernel_size, kernel_size))
+    #mede o nivel geral de variação da textura (quanto mais alto, mais "caótica" e amassada está essa superfcie)
     chaos_score = np.std(variance_local)
     
-    # 4. DETECÇÃO DE LINHAS ANGULARES (vincos formam ângulos)
+    # detecta bordas fortes na imagem (transições bruscas entre claro e escuro)
     edges = cv2.Canny(gray, 50, 150)
+    #encontra linhas retas com base nas bordas detectadas (linhas comuns em vincos de amassamento)
     lines = cv2.HoughLinesP(edges, 1, np.pi/180, threshold=50, minLineLength=30, maxLineGap=10)
+    #conta quantas linhas angulares(linhas de dobras, amassados, quinas e etc) foram detectadas
     num_angular_lines = len(lines) if lines is not None else 0
     
     return crease_ratio, high_variation, chaos_score, num_angular_lines
 
+#detecta caracteristicas do plastico pela textura
 def analyze_plastic_characteristics(img):
-    """Detecta características específicas de plástico"""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # 1. TEXTURA RUGOSA - plástico amassa, vidro não
+    # analise de textura, plasticos tem uma textura mais aspera
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
+
+    #avalia quantidade de variações bruscas na 
+    # textura (valor muito alto indica textura mais aspera, provavel plastico)
     texture_roughness = np.var(laplacian)
     
-    # 2. BORDAS IRREGULARES - plástico deforma mais
+    #canny para detectar bordas do objeto
     edges = cv2.Canny(gray, 30, 100)
+    #calcula % de pixels que são bordas no objto
     edge_complexity = np.sum(edges > 0) / edges.size
     
-    # 3. DEFORMAÇÕES - plástico distorce mais a imagem
+    #gaussianblur blur para reduzir 
+    # ruídos/sujeiras e pequenos detalhes que podem ser confundidos como textura
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     detail_loss = np.mean(np.abs(gray.astype(float) - blur.astype(float)))
     
     return texture_roughness, edge_complexity, detail_loss
 
+#analisa propriedades de cor para diferenciar vidro e plastico coloridos
 def analyze_color_properties(img):
-    """Analisa propriedades de cor - importante para vidro colorido"""
+    #converte cor para HSV para melhor análise de cor (matiz (cor), saturaçao (intensidade), valor (brilho))
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
-    # 1. SATURAÇÃO - vidro colorido tem saturação uniforme e intensa
+    # avalia o quão pura é aquela cor
     saturation = hsv[:, :, 1]
+    # media da saturação = quão colorida a imagem em geral
     sat_mean = np.mean(saturation)
+    # baixo = cor uniforme (vidro colorido)
+    # alto = cor varia muito (possivelmente impresso/pintado/rotlos)
     sat_std = np.std(saturation)
     
-    # 2. UNIFORMIDADE DE COR - vidro tem cor mais homogênea
+    # avalia uniformidade da cor
     color_uniformity = 1.0 / (sat_std + 1)  # quanto menor variação, mais uniforme
     
-    # 3. INTENSIDADE - vidro costuma ter cores mais puras
+    # avalia intensidade da cor (vidro costuma ter cores mais puras)
     value = hsv[:, :, 2]
     val_mean = np.mean(value)
     
     return sat_mean, sat_std, color_uniformity, val_mean
 
+#analisa padrões de transparencia e translucidez do objeto
 def analyze_transparency_and_translucency(img):
-    """Analisa características de transparência e translucidez"""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    #aplicica blur (desfoque) para suavizar ruidos/sujeiras/detalhes
     blur = cv2.GaussianBlur(gray, (5,5), 0)
     
-    # 1. Distorção ótica
-    # Plástico causa mais distorção que vidro
+    # distorção ótica   
     laplacian = cv2.Laplacian(blur, cv2.CV_64F)
     distortion_score = np.std(laplacian)
     
-    # 2. Padrão de reflexão
-    # Vidro tem reflexos mais nítidos e definidos
+    #captura somente os pixels muito brilhantes
     _, highlights = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
+    #avalia variança dos reflexos/brilhos
+    # (bordas muito nitidas indicam vidro | reflexos mais suaves indicam plastico)
     highlight_sharpness = cv2.Laplacian(highlights, cv2.CV_64F).var()
     
-    # 3. Consistência da superfície
-    # Vidro tem superfície mais uniforme
+    # avalia consistencia das superficie
+    # vidro tem superfcie mais uniforme, enquanto plastico pode ter mais irregular
     surface_uniformity = cv2.Sobel(gray, cv2.CV_64F, 1, 1).var()
     
     return distortion_score, highlight_sharpness, surface_uniformity
@@ -173,41 +190,48 @@ def analyze_surface_smoothness(img):
     """Analisa a suavidade da superfície"""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # 1. Micro-texturas
-    # Plástico tem mais micro-texturas
+    
+    # analise as micro texturas, plastico costuma tem mais micro texturas
     kernel = np.ones((3,3), np.float32)/9
+    #aplica filtro customizado na imagem
     filtered = cv2.filter2D(gray, -1, kernel)
+    #compara original com filtrada
     texture_detail = np.mean(np.abs(gray - filtered))
     
-    # 2. Regularidade de bordas
+    # regularidade de bordas, detecta bordas com o canny
     edges = cv2.Canny(gray, 50, 150)
     edge_smoothness = cv2.blur(edges.astype(float), (5,5)).var()
     
     return texture_detail, edge_smoothness
 
 def predict_crop(model, crop_img):
-    """Classifica a imagem e retorna o rótulo e a confiança"""
-    # Pré-processamento da imagem
+    """classifica a imagem e retorna o rótulo e a confiança"""
+    # redimensiona e normaliza a imagem (224x224 e valores esperados pela rede neural)
     img_processed = tf.image.resize(crop_img, IMG_SIZE)
     img_processed = img_processed / 255.0
     
-    # Obter predições do modelo
+    # obter predições do modelo
     predictions = model.predict(np.expand_dims(img_processed, 0))[0]
     
-    # Análises específicas
+     # chama funçoes que analisam caracteristicas fisicas
     distortion, highlights, uniformity = analyze_transparency_and_translucency(crop_img)
     texture, edge_smooth = analyze_surface_smoothness(crop_img)
     
-    # Ajuste da predição baseado em características físicas
+    # se o modelo disse "vidro" mas características indicam plástico, corrige!
+    # se a rede deu >30% de chance de ser vidro
     if predictions[CLASS_NAMES.index('glass')] > 0.3:
+        # mas tem alta distorção (>0.8) ou muita textura (>0.5)
+        # essas são caracteristicas de plastico e nao vidro
         if (distortion > 0.8 or texture > 0.5):
+            # correção: aumenta probablidade de plastico
             predictions[CLASS_NAMES.index('plastic')] += 0.3
+            #diminui probabilidade de vidro
             predictions[CLASS_NAMES.index('glass')] -= 0.3
     
-    # Normalizar as probabilidades após os ajustes
+    # normalizar as probabilidades depois de ajustes
     predictions = predictions / np.sum(predictions)
     
-    # Retornar o rótulo e a confiança
+    # retornar o rotulo e a confiança
     label = CLASS_NAMES[np.argmax(predictions)]
     confidence = float(np.max(predictions))
     
