@@ -2,8 +2,9 @@
 import cv2
 from classifier import load_model, predict_crop
 
-# modo atualmente e em imagem estatica, mas posso mudar, "webcam" ou "imagem"
-MODE = "imagem"  # troque para "webcam" para usar a câmera do computador
+# modo atualmente, mas posso mudar para "webcam" ou "imagem"
+MODE = "webcam"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
+                 #ou "webcam" caso queira analisar pela camera da maquina.
 
 # carrega o classificador treinado
 classifier_model = load_model("models/waste_classifier.h5")
@@ -22,7 +23,7 @@ def main():
 
             classify_and_show(frame)
 
-            if cv2.waitKey(1) & 0xFF == ord('q'):
+            if (cv2.waitKey(1) & 0xFF == ord('q')) or (cv2.waitKey(1) & 0xFF == ord('1')):
                 break
 
         cap.release()
@@ -30,7 +31,7 @@ def main():
 
     elif MODE == "imagem": #caso de imagem estatica ele abre a imagem inserida na pasta images for analysis
         # abaixo o caminho da imagem que quero analisar/classificar
-        frame = cv2.imread("data\\images_for_analysis\\image.jpg")
+        frame = cv2.imread("data\\images_for_analysis\\image.png")
         if frame is None:
             print("Erro: imagem não encontrada!")
             return

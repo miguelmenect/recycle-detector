@@ -4,10 +4,7 @@ import cv2
 
 #dicionario o qual mapeia objetos detectados, no caso de garrafa(bottle) ele classifca como plástico
 LABEL_TO_CATEGORY = {
-    "bottle": "Vidro",
     "cup": "Plástico",
-    "glass": "Vidro",
-    "glassbottle": "Vidro",
     "glassvase": "Vidro",
     "apple": "Orgânico",
     "banana": "Orgânico",
@@ -16,7 +13,7 @@ LABEL_TO_CATEGORY = {
     "newspaper": "Papel",
     "can": "Metal",
     "tin": "Metal",
-    # caso adicio
+    # para adicionar mais
 }
 
 #função de recorte(crop) uma parte da imagem e retorna a mesma ajustada
