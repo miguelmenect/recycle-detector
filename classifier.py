@@ -187,10 +187,8 @@ def analyze_transparency_and_translucency(img):
     return distortion_score, highlight_sharpness, surface_uniformity
 
 def analyze_surface_smoothness(img):
-    """Analisa a suavidade da superfície"""
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    
-    
+        
     # analise as micro texturas, plastico costuma tem mais micro texturas
     kernel = np.ones((3,3), np.float32)/9
     #aplica filtro customizado na imagem
@@ -204,8 +202,30 @@ def analyze_surface_smoothness(img):
     
     return texture_detail, edge_smoothness
 
+def analyze_metal_characteristics(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # metais têm reflexos mais fortes e concentrados, portando é feito uma análise desse brilho do objeto
+    _, very_bright = cv2.threshold(gray, 240, 255, cv2.THRESH_BINARY)
+    #calcula em % quanto o objeto é brilhante
+    bright_ratio = np.sum(very_bright) / very_bright.size
+    
+    # canny detecta as bordas do objeto
+    #metais em especifico tem bordas muito nitidas (latinhas são cilindricas, com contornos mais definidos)
+    edges = cv2.Canny(gray, 100, 200)
+    edge_density = np.sum(edges > 0) / edges.size
+    
+    # superfície lisa com alto contraste de claro e escuro (padrão metálico)
+    contrast = gray.std()
+    
+    # metais refletem luz de forma especular (manchas brilhantes isoladas)
+    kernel = np.ones((3,3), np.uint8)
+    dilated = cv2.dilate(very_bright, kernel, iterations=1)
+    num_reflections = cv2.connectedComponents(dilated)[0] - 1
+    
+    return bright_ratio, edge_density, contrast, num_reflections
+
 def predict_crop(model, crop_img):
-    """classifica a imagem e retorna o rótulo e a confiança"""
     # redimensiona e normaliza a imagem (224x224 e valores esperados pela rede neural)
     img_processed = tf.image.resize(crop_img, IMG_SIZE)
     img_processed = img_processed / 255.0
@@ -213,26 +233,33 @@ def predict_crop(model, crop_img):
     # obter predições do modelo
     predictions = model.predict(np.expand_dims(img_processed, 0))[0]
     
-     # chama funçoes que analisam caracteristicas fisicas
+    # chama funções que analisam características físicas detalhadas do objeto   
+    # (cada função retorna valores numéricos das características)
     distortion, highlights, uniformity = analyze_transparency_and_translucency(crop_img)
     texture, edge_smooth = analyze_surface_smoothness(crop_img)
+    bright_ratio, edge_density, contrast, reflections = analyze_metal_characteristics(crop_img)
+    
+    # metal tem: muito brilho, alto contraste entre claro e escuro, reflexos isolados
+    if bright_ratio > 0.15 and contrast > 50 and reflections > 2:
+        # muito provável ser metal
+        predictions[CLASS_NAMES.index('metal')] += 0.4
+        predictions[CLASS_NAMES.index('plastic')] -= 0.2
+        predictions[CLASS_NAMES.index('glass')] -= 0.2    
     
     # se o modelo disse "vidro" mas características indicam plástico, corrige!
-    # se a rede deu >30% de chance de ser vidro
     if predictions[CLASS_NAMES.index('glass')] > 0.3:
-        # mas tem alta distorção (>0.8) ou muita textura (>0.5)
-        # essas são caracteristicas de plastico e nao vidro
+        # caso tenha muita distorçao, muita textura áspera (>0.5), provevelmente é plastico
         if (distortion > 0.8 or texture > 0.5):
-            # correção: aumenta probablidade de plastico
+            # faz a correção de prefictions, aumenta plástico e diminui vidro
             predictions[CLASS_NAMES.index('plastic')] += 0.3
-            #diminui probabilidade de vidro
             predictions[CLASS_NAMES.index('glass')] -= 0.3
     
     # normalizar as probabilidades depois de ajustes
+    predictions = np.clip(predictions, 0, 1)  # garante que não fique negativo
     predictions = predictions / np.sum(predictions)
     
-    # retornar o rotulo e a confiança
+    # retorna a categoria e a confiança (exemplo: "metal", 0.85 = 85% de certeza)
     label = CLASS_NAMES[np.argmax(predictions)]
-    confidence = float(np.max(predictions))
-    
+    confidence = float(np.max(predictions))   
+
     return label, confidence

@@ -7,7 +7,7 @@ from classifier import load_model, predict_crop
 MODE = "video"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
                  #ou "webcam" caso queira analisar pela camera da maquina.
                  #ou analise por "video" caso queira analisar um video na pasta video_for_analysis
-                 
+
 # carrega o classificador treinado
 classifier_model = load_model("models/waste_classifier.h5")
 
@@ -15,7 +15,7 @@ def main():
     if MODE == "webcam": # se for webcam ele abre a camera
         cap = cv2.VideoCapture(0)
         if not cap.isOpened():
-            print("Erro: webcam não encontrada!") #caso de erro
+            print("Erro: webcam não encontrada!") #caso de erro.
             return
 
         while True:
@@ -48,7 +48,36 @@ def main():
         if not os.path.exists("data\\video_for_analysis\\video.mp4"):
             print(f"Erro: Vídeo não encontrado em: data\video_for_analysis\video.mp4") #caso de erro
             return
-        process_video("data\\video_for_analysis\\video.mp4")# aqui ele processa o video    
+        process_video("data\\video_for_analysis\\video.mp4")# aqui ele roda o video    
+
+def process_video(video_path):
+    #abre o vídeo    
+    cap = cv2.VideoCapture(video_path)
+
+    # verifica se conseguiu abrir o vídeo
+    # caso der errado (arquivo não existe, corrompido, etc), para aqui
+    if not cap.isOpened():
+        print(f"Erro: não foi possível abrir o vídeo {video_path}")
+        return
+    
+    print(f"Processando vídeo: {video_path}")
+    print("Pressione 'q' para sair")
+    
+    #loop que vai processar o vídeo (frame por frame)
+    while True:
+        ret, frame = cap.read()
+        # se não conseguiu ler (ret em false) significa que o vídeo acabou
+        if not ret:
+            print("Fim do vídeo")
+            break
+        #o frame atual é analisado e classificado pela função classify_and_show
+        classify_and_show(frame)
+        #se "q" ou ""1" for pressionado sai do loop e encerra
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cap.release()
+    cv2.destroyAllWindows()
 
 ##classifica imagem e mostra o resultado na tela
 def classify_and_show(frame):
@@ -65,30 +94,6 @@ def classify_and_show(frame):
 
     # tittulo do frame da imagem
     cv2.imshow("Descrição de lixo", frame)
-
-def process_video(video_path):
-    """processa um arquivo de video frame por frame"""
-    cap = cv2.VideoCapture(video_path)
-    if not cap.isOpened():
-        print(f"Erro: não foi possível abrir o vídeo {video_path}")
-        return
-    
-    print(f"Processando vídeo: {video_path}")
-    print("Pressione 'q' para sair")
-    
-    while True:
-        ret, frame = cap.read()
-        if not ret:
-            print("Fim do vídeo")
-            break
-        
-        classify_and_show(frame)
-        
-        if cv2.waitKey(1) & 0xFF == ord('q'):
-            break
-    
-    cap.release()
-    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
