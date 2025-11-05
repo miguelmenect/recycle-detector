@@ -187,6 +187,7 @@ def analyze_transparency_and_translucency(img):
     return distortion_score, highlight_sharpness, surface_uniformity
 
 def analyze_surface_smoothness(img):
+
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
     # analise as micro texturas, plastico costuma tem mais micro texturas
@@ -225,6 +226,68 @@ def analyze_metal_characteristics(img):
     
     return bright_ratio, edge_density, contrast, num_reflections
 
+#define padrões papel
+def analyze_paper_characteristics(img):    
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # textura do papel tem micro texturas fibrosas (fibras de celulose)
+    # usa filtro Sobel para que ele detecte essas fibras microscopicas
+    sobel_x = cv2.Sobel(gray, cv2.CV_64F, 1, 0, ksize=3)
+    sobel_y = cv2.Sobel(gray, cv2.CV_64F, 0, 1, ksize=3)
+    # calcula magnitude do gradiente, a intensidade das fibras
+    fibrous_texture = np.sqrt(sobel_x**2 + sobel_y**2).mean()
+    
+   
+    # papel não absorve muita luz, então tem pouquissimos pixels brilhantes
+    # (diferente de metal/vidro que refletem muito)
+    _, very_bright = cv2.threshold(gray, 230, 255, cv2.THRESH_BINARY)
+    low_brightness_ratio = 1.0 - (np.sum(very_bright) / very_bright.size)
+    # quanto maior esse valor, mais opaco (ou seja mais proximo do padrão do papel)
+    
+    # papel geralmente tem cor mais uniforme (branco, bege, cinza)
+    # calcula desvio padrão: baixo = uniforme ou seja, mais padrão papel
+    color_uniformity = 1.0 / (gray.std() + 1)
+    
+    # papel no tem reflexos isolados como metal
+    # conta areas brilhantes isoladas (papel tem pouquíssimas)
+    kernel = np.ones((5,5), np.uint8)
+    dilated = cv2.dilate(very_bright, kernel, iterations=1)
+    num_specular_reflections = cv2.connectedComponents(dilated)[0] - 1
+    # papel tem 0-2 reflexos, metal tem 3+
+    
+    return fibrous_texture, low_brightness_ratio, color_uniformity, num_specular_reflections
+
+def analyze_organic_characteristics(img):
+    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
+    
+    # organinicos tem mais variação de cores (verde, marrom, amarelo, vermelho)
+    # calcula desvio padrão da saturação (H) e matiz (S)
+    hue = hsv[:, :, 0]
+    saturation = hsv[:, :, 1]
+    color_variation = hue.std() + saturation.std()
+    # quanto maior, mais variação (típico de orgânicos)
+    
+    # orgânicos não têm formas geométricas definidas, então suas irregularidades sao mais comuns
+    # detecta as bordas e calcula complexidade
+    edges = cv2.Canny(gray, 30, 100)
+    edge_irregularity = np.sum(edges > 0) / edges.size
+    # alto valor = muitas bordas irregulares mais proximo do padrão orgânico
+    
+    # organicos têm mais manchas, pontos de decomposição, variação de textura
+    # calcula variação local de intensidade
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    texture_variation = np.abs(gray.astype(float) - blur.astype(float)).mean()
+    # alto valor = textura "suja", não uniforme
+    
+    # organicos geralmente têm tons marrons, verdes, amarelos mais terrosos em geral
+    # calcula media de matiz (H) - verifica se está em faixa de cores naturais (mais terrosas)
+    # marrom/verde: 20-60 (amarelo-verde) e 80-120 (verde-azul)
+    hue_mean = hue.mean()
+    is_natural_color = 1.0 if (20 <= hue_mean <= 120) else 0.5
+    
+    return color_variation, edge_irregularity, texture_variation, is_natural_color
+
 def predict_crop(model, crop_img):
     # redimensiona e normaliza a imagem (224x224 e valores esperados pela rede neural)
     img_processed = tf.image.resize(crop_img, IMG_SIZE)
@@ -238,7 +301,23 @@ def predict_crop(model, crop_img):
     distortion, highlights, uniformity = analyze_transparency_and_translucency(crop_img)
     texture, edge_smooth = analyze_surface_smoothness(crop_img)
     bright_ratio, edge_density, contrast, reflections = analyze_metal_characteristics(crop_img)
+    fibrous, low_bright, paper_uniform, paper_reflections = analyze_paper_characteristics(crop_img)
+    color_var, edge_irreg, texture_var, natural_color = analyze_organic_characteristics(crop_img)
+   
+    # papel tem textura fibrosa, baixo brilho, poucos reflexos, e mais uniforme
+    # exemplo: fibrous > 15 (tem textura), low_bright > 0.8 (opaco), paper_reflections < 3
+    if fibrous > 15 and low_bright > 0.8 and paper_reflections < 3:
+        predictions[CLASS_NAMES.index('paper')] += 0.35
+        predictions[CLASS_NAMES.index('metal')] -= 0.2  # papel NÃO é metal
+        predictions[CLASS_NAMES.index('plastic')] -= 0.15    
     
+    # correção para orgânico, organico tem alta variação de cor, bordas irregulares,
+    #  textura não uniforme, cores mais naturais
+    if color_var > 30 and edge_irreg > 0.2 and texture_var > 8 and natural_color > 0.8:
+        predictions[CLASS_NAMES.index('organic')] += 0.35
+        predictions[CLASS_NAMES.index('paper')] -= 0.15
+        predictions[CLASS_NAMES.index('plastic')] -= 0.15
+
     # metal tem: muito brilho, alto contraste entre claro e escuro, reflexos isolados
     if bright_ratio > 0.15 and contrast > 50 and reflections > 2:
         # muito provável ser metal
