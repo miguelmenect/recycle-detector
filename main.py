@@ -1,11 +1,13 @@
 # arquivo principal do projeto, quem executa o projeto
+import os
 import cv2
 from classifier import load_model, predict_crop
 
-# modo atualmente, mas posso mudar para "webcam" ou "imagem"
-MODE = "webcam"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
+# modo atualmente, mas posso alternar entre "webcam", "imagem" e "video"
+MODE = "video"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
                  #ou "webcam" caso queira analisar pela camera da maquina.
-
+                 #ou analise por "video" caso queira analisar um video na pasta video_for_analysis
+                 
 # carrega o classificador treinado
 classifier_model = load_model("models/waste_classifier.h5")
 
@@ -41,6 +43,13 @@ def main():
         # espera fechar a janela
         cv2.waitKey(0)
         cv2.destroyAllWindows()
+    elif MODE == "video": #caso de video ele abre o video inserido na pasta video_for_analysis
+                          #e avalia o objeto do vídeo
+        if not os.path.exists("data\\video_for_analysis\\video.mp4"):
+            print(f"Erro: Vídeo não encontrado em: data\video_for_analysis\video.mp4") #caso de erro
+            return
+        process_video("data\\video_for_analysis\\video.mp4")# aqui ele processa o video    
+
 ##classifica imagem e mostra o resultado na tela
 def classify_and_show(frame):
     # ele envia a imagem para o modelo classificar
@@ -56,6 +65,30 @@ def classify_and_show(frame):
 
     # tittulo do frame da imagem
     cv2.imshow("Descrição de lixo", frame)
+
+def process_video(video_path):
+    """processa um arquivo de video frame por frame"""
+    cap = cv2.VideoCapture(video_path)
+    if not cap.isOpened():
+        print(f"Erro: não foi possível abrir o vídeo {video_path}")
+        return
+    
+    print(f"Processando vídeo: {video_path}")
+    print("Pressione 'q' para sair")
+    
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            print("Fim do vídeo")
+            break
+        
+        classify_and_show(frame)
+        
+        if cv2.waitKey(1) & 0xFF == ord('q'):
+            break
+    
+    cap.release()
+    cv2.destroyAllWindows()
 
 if __name__ == "__main__":
     main()
