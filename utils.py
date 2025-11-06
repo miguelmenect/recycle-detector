@@ -2,13 +2,13 @@
 #importando lib cv2
 import cv2
 
-#dicionario o qual mapeia objetos detectados, no caso de garrafa(bottle) ele classifca como plástico
+#dicionario o qual mapeia objetos detectados, no caso de garrafa(bottle) ele classifca como Plastico
 LABEL_TO_CATEGORY = {
-    "cup": "Plástico",
+    "cup": "Plastico",
     "glassvase": "Vidro",
-    "apple": "Orgânico",
-    "banana": "Orgânico",
-    "orange": "Orgânico",
+    "apple": "Organico",
+    "banana": "Organico",
+    "orange": "Organico",
     "book": "Papel",
     "newspaper": "Papel",
     "can": "Metal",

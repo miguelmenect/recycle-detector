@@ -6,7 +6,7 @@ from PIL import Image, ImageDraw, ImageFont
 from classifier import load_model, predict_crop
 
 # modo atualmente, mas posso alternar entre "webcam", "imagem" e "video"
-MODE = "video"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
+MODE = "imagem"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
                  #ou "webcam" caso queira analisar pela camera da maquina.
                  #ou analise por "video" caso queira analisar um video na pasta video_for_analysis
 
@@ -17,7 +17,7 @@ classifier_model = load_model("models/waste_classifier.h5")
 
 #array categorizado com informações extras educativas sobre cada tipo de lixo/objeto analizado
 EDUCATIONAL_INFO = {
-    "pet_bottle": {
+    "Pet_bottle": {
         "title": "Garrafa PET",
         "text": [
             "As garrafas PET são altamente recicláveis e podem ganhar novas",
@@ -28,17 +28,17 @@ EDUCATIONAL_INFO = {
             "petróleo, um recurso não renovável."
         ]
     },
-    "plastic": {
-        "title": "Plásticos diversos",
+    "Plastico": {
+        "title": "Plasticos diversos",
         "text": [
-            "Plásticos, quando reciclados, podem ser reaproveitados na",
+            "Plasticos, quando reciclados, podem ser reaproveitados na",
             "fabricação de brinquedos, caixas organizadoras, baldes, sacolas",
             "recicladas e até modulados para construção. A correta destinação",
             "contribui para evitar poluição dos oceanos, rios e solos,",
             "preservando a vida animal e vegetal."
         ]
     },
-    "aluminum_can": {
+    "Aluminum_can": {
         "title": "Latinhas de alumínio",
         "text": [
             "As latinhas de alumínio possuem uma das reciclagens mais eficientes",
@@ -48,17 +48,17 @@ EDUCATIONAL_INFO = {
             "a extração mineral e impactos ambientais."
         ]
     },
-    "metal_sheet": {
-        "title": "Chapas de metal",
+    "Metal_sheet": {
+        "title": "Chapas de Metal",
         "text": [
-            "Chapas de metal descartadas podem ser reaproveitadas na fabricação",
+            "Chapas de Metal descartadas podem ser reaproveitadas na fabricação",
             "de peças industriais, estruturas metálicas, utensílios e ferramentas.",
             "O processo de reciclagem desses materiais reduz a necessidade de",
-            "extração de minério e aproveita o metal já existente, preservando",
+            "extração de minério e aproveita o Metal já existente, preservando",
             "recursos naturais."
         ]
     },
-    "metal": {
+    "Metal": {
         "title": "Metais diversos",
         "text": [
             "Metais, como cobre, ferro e aço, podem ser derretidos e",
@@ -68,7 +68,7 @@ EDUCATIONAL_INFO = {
             "quando comparado ao processo de mineração."
         ]
     },
-    "paper": {
+    "Papel": {
         "title": "Papel",
         "text": [
             "O papel reciclado pode se transformar em cadernos, caixas, papel",
@@ -78,7 +78,7 @@ EDUCATIONAL_INFO = {
             "de florestas e equilíbrio ambiental."
         ]
     },
-    "glass_bottle": {
+    "Vidro_bottle": {
         "title": "Garrafas de vidro",
         "text": [
             "As garrafas de vidro podem ser totalmente reaproveitadas e retornarem",
@@ -88,7 +88,7 @@ EDUCATIONAL_INFO = {
             "reciclado indefinidamente sem perder qualidade."
         ]
     },
-    "flat_glass": {
+    "Flat_glass": {
         "title": "Vidros planos",
         "text": [
             "Vidros planos, como os encontrados em janelas e portas, podem ser",
@@ -98,7 +98,7 @@ EDUCATIONAL_INFO = {
             "recurso que leva centenas de anos para se decompor."
         ]
     },
-    "glass": {
+    "Vidro": {
         "title": "Vidros diversos",
         "text": [
             "Vidro, quando encaminhados para recicladores especializados,",
@@ -107,10 +107,10 @@ EDUCATIONAL_INFO = {
             "ambiente e evita excessos nos aterros sanitários."
         ]
     },
-    "organic": {
-        "title": "Orgânico",
+    "Organico": {
+        "title": "Organico",
         "text": [
-            "Resíduos orgânicos, apesar de não serem recicláveis industrialmente,",
+            "Resíduos Organicos, apesar de não serem recicláveis industrialmente,",
             "possuem grande valor ambiental. Podem ser usados na compostagem,",
             "gerando adubo natural rico em nutrientes para hortas, jardins e",
             "plantações. Além de reduzir mau cheiro e proliferação de vetores,",
@@ -190,37 +190,37 @@ def detect_specific_object(label, frame):
         # se não conseguiu analisar forma, retorna categoria generica/diversa
         return label
     
-    # caso de plastico
-    if label == "plastic":
+    # caso de Plastico
+    if label == "Plastico":
         # garrafa pet: alta proporção altura/largura (>2.0) e um pouquinho cilindrica
         if shape_info['aspect_ratio'] > 2.0 or shape_info['elongation'] > 2.0:
-            return "pet_bottle"
+            return "Pet_bottle"
         else:
-            return "plastic"
+            return "Plastico"
     
-    # caso de metal
-    elif label == "metal":
+    # caso de Metal
+    elif label == "Metal":
         # latinhas e semelhates: forma cilindrica (elongation ~1.5-2.5) e circularidade alta
         if 1.3 < shape_info['elongation'] < 3.0 and shape_info['circularity'] > 0.6:
-            return "aluminum_can"
-        # chapas de metal: forma mais plana e retangular, com finura
+            return "Aluminum_can"
+        # chapas de Metal: forma mais plana e retangular, com finura
         elif shape_info['aspect_ratio'] < 1.5 and shape_info['circularity'] < 0.4:
-            return "metal_sheet"
+            return "Metal_sheet"
         else:
-            return "metal"
+            return "Metal"
     
     # caso de vidro
-    elif label == "glass":
+    elif label == "Vidro":
         # garrafa de vidro: alta proporção altura/largura
         if shape_info['aspect_ratio'] > 2.0 or shape_info['elongation'] > 2.0:
-            return "glass_bottle"
+            return "Vidro_bottle"
         # vidro plano: forma mais retangular
         elif shape_info['aspect_ratio'] < 1.5 and shape_info['circularity'] < 0.5:
-            return "flat_glass"
+            return "Flat_glass"
         else:
-            return "glass"
+            return "Vidro"
     
-    # papel e orgânico não precisam de detecção especifica
+    # papel e Organico não precisam de detecção especifica
     else:
         # categorias que não precisam detecção especifica
         return label
@@ -318,7 +318,7 @@ def main():
 
     elif MODE == "imagem": #caso de imagem estatica ele abre a imagem inserida na pasta images for analysis
         # abaixo o caminho da imagem que quero analisar/classificar
-        frame = cv2.imread("data\\images_for_analysis\\image5.png")
+        frame = cv2.imread("data\\images_for_analysis\\image3.png")
         if frame is None:
             print("Erro: imagem não encontrada!")
             return
