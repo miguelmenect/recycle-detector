@@ -10,7 +10,7 @@ import os
 IMG_SIZE = (224, 224)
 BATCH_SIZE = 4
 # classificações
-CLASS_NAMES = ["glass", "metal", "organic", "paper", "plastic", "others"]
+CLASS_NAMES = ["Vidro", "Metal", "Orgânico", "Papel", "Plástico", "Outros"]
 
 def build_model(num_classes=len(CLASS_NAMES)):
     base = tf.keras.applications.MobileNetV2(input_shape=IMG_SIZE + (3,),
@@ -60,7 +60,7 @@ def load_model(path):
     return tf.keras.models.load_model(path)
 
 #capta caractersticas especficas do vidro 
-def analyze_glass_characteristics(img):
+def analyze_Vidro_characteristics(img):
     #converte cor para cinza para melhor detecção
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
@@ -83,7 +83,7 @@ def analyze_glass_characteristics(img):
     #retorno de 4 caracteristicas com valores de carcteristicas de padrão de vidro
     return very_bright_ratio, bright_ratio, contrast, num_bright_clusters
 
-#detecção dos amassados/deformidades no objeto (plastico costuma ser um material mais amassado)
+#detecção dos amassados/deformidades no objeto (Plásticoo costuma ser um material mais amassado)
 def detect_crushing_deformation(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
@@ -119,15 +119,15 @@ def detect_crushing_deformation(img):
     
     return crease_ratio, high_variation, chaos_score, num_angular_lines
 
-#detecta caracteristicas do plastico pela textura
-def analyze_plastic_characteristics(img):
+#detecta caracteristicas do Plásticoo pela textura
+def analyze_Plástico_characteristics(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
-    # analise de textura, plasticos tem uma textura mais aspera
+    # analise de textura, Plásticoos tem uma textura mais aspera
     laplacian = cv2.Laplacian(gray, cv2.CV_64F)
 
     #avalia quantidade de variações bruscas na 
-    # textura (valor muito alto indica textura mais aspera, provavel plastico)
+    # textura (valor muito alto indica textura mais aspera, provavel Plásticoo)
     texture_roughness = np.var(laplacian)
     
     #canny para detectar bordas do objeto
@@ -142,7 +142,7 @@ def analyze_plastic_characteristics(img):
     
     return texture_roughness, edge_complexity, detail_loss
 
-#analisa propriedades de cor para diferenciar vidro e plastico coloridos
+#analisa propriedades de cor para diferenciar vidro e Plásticoo coloridos
 def analyze_color_properties(img):
     #converte cor para HSV para melhor análise de cor (matiz (cor), saturaçao (intensidade), valor (brilho))
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
@@ -177,11 +177,11 @@ def analyze_transparency_and_translucency(img):
     #captura somente os pixels muito brilhantes
     _, highlights = cv2.threshold(gray, 200, 255, cv2.THRESH_BINARY)
     #avalia variança dos reflexos/brilhos
-    # (bordas muito nitidas indicam vidro | reflexos mais suaves indicam plastico)
+    # (bordas muito nitidas indicam vidro | reflexos mais suaves indicam Plásticoo)
     highlight_sharpness = cv2.Laplacian(highlights, cv2.CV_64F).var()
     
     # avalia consistencia das superficie
-    # vidro tem superfcie mais uniforme, enquanto plastico pode ter mais irregular
+    # vidro tem superfcie mais uniforme, enquanto Plásticoo pode ter mais irregular
     surface_uniformity = cv2.Sobel(gray, cv2.CV_64F, 1, 1).var()
     
     return distortion_score, highlight_sharpness, surface_uniformity
@@ -190,7 +190,7 @@ def analyze_surface_smoothness(img):
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         
-    # analise as micro texturas, plastico costuma tem mais micro texturas
+    # analise as micro texturas, Plásticoo costuma tem mais micro texturas
     kernel = np.ones((3,3), np.float32)/9
     #aplica filtro customizado na imagem
     filtered = cv2.filter2D(gray, -1, kernel)
@@ -203,7 +203,7 @@ def analyze_surface_smoothness(img):
     
     return texture_detail, edge_smoothness
 
-def analyze_metal_characteristics(img):
+def analyze_Metal_characteristics(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
     # metais têm reflexos mais fortes e concentrados, portando é feito uma análise desse brilho do objeto
@@ -227,7 +227,7 @@ def analyze_metal_characteristics(img):
     return bright_ratio, edge_density, contrast, num_reflections
 
 #define padrões papel
-def analyze_paper_characteristics(img):    
+def analyze_Papel_characteristics(img):    
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     
     # textura do papel tem micro texturas fibrosas (fibras de celulose)
@@ -239,7 +239,7 @@ def analyze_paper_characteristics(img):
     
    
     # papel não absorve muita luz, então tem pouquissimos pixels brilhantes
-    # (diferente de metal/vidro que refletem muito)
+    # (diferente de Metal/vidro que refletem muito)
     _, very_bright = cv2.threshold(gray, 230, 255, cv2.THRESH_BINARY)
     low_brightness_ratio = 1.0 - (np.sum(very_bright) / very_bright.size)
     # quanto maior esse valor, mais opaco (ou seja mais proximo do padrão do papel)
@@ -248,16 +248,16 @@ def analyze_paper_characteristics(img):
     # calcula desvio padrão: baixo = uniforme ou seja, mais padrão papel
     color_uniformity = 1.0 / (gray.std() + 1)
     
-    # papel no tem reflexos isolados como metal
+    # papel no tem reflexos isolados como Metal
     # conta areas brilhantes isoladas (papel tem pouquíssimas)
     kernel = np.ones((5,5), np.uint8)
     dilated = cv2.dilate(very_bright, kernel, iterations=1)
     num_specular_reflections = cv2.connectedComponents(dilated)[0] - 1
-    # papel tem 0-2 reflexos, metal tem 3+
+    # papel tem 0-2 reflexos, Metal tem 3+
     
     return fibrous_texture, low_brightness_ratio, color_uniformity, num_specular_reflections
 
-def analyze_organic_characteristics(img):
+def analyze_Orgânico_characteristics(img):
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
     hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
     
@@ -274,13 +274,13 @@ def analyze_organic_characteristics(img):
     edge_irregularity = np.sum(edges > 0) / edges.size
     # alto valor = muitas bordas irregulares mais proximo do padrão orgânico
     
-    # organicos têm mais manchas, pontos de decomposição, variação de textura
+    # Orgânicoos têm mais manchas, pontos de decomposição, variação de textura
     # calcula variação local de intensidade
     blur = cv2.GaussianBlur(gray, (5, 5), 0)
     texture_variation = np.abs(gray.astype(float) - blur.astype(float)).mean()
     # alto valor = textura "suja", não uniforme
     
-    # organicos geralmente têm tons marrons, verdes, amarelos mais terrosos em geral
+    # Orgânicoos geralmente têm tons marrons, verdes, amarelos mais terrosos em geral
     # calcula media de matiz (H) - verifica se está em faixa de cores naturais (mais terrosas)
     # marrom/verde: 20-60 (amarelo-verde) e 80-120 (verde-azul)
     hue_mean = hue.mean()
@@ -300,44 +300,44 @@ def predict_crop(model, crop_img):
     # (cada função retorna valores numéricos das características)
     distortion, highlights, uniformity = analyze_transparency_and_translucency(crop_img)
     texture, edge_smooth = analyze_surface_smoothness(crop_img)
-    bright_ratio, edge_density, contrast, reflections = analyze_metal_characteristics(crop_img)
-    fibrous, low_bright, paper_uniform, paper_reflections = analyze_paper_characteristics(crop_img)
-    color_var, edge_irreg, texture_var, natural_color = analyze_organic_characteristics(crop_img)
+    bright_ratio, edge_density, contrast, reflections = analyze_Metal_characteristics(crop_img)
+    fibrous, low_bright, Papel_uniform, Papel_reflections = analyze_Papel_characteristics(crop_img)
+    color_var, edge_irreg, texture_var, natural_color = analyze_Orgânico_characteristics(crop_img)
    
     # papel tem textura fibrosa, baixo brilho, poucos reflexos, e mais uniforme
-    # exemplo: fibrous > 15 (tem textura), low_bright > 0.8 (opaco), paper_reflections < 3
-    if fibrous > 15 and low_bright > 0.8 and paper_reflections < 3:
-        predictions[CLASS_NAMES.index('paper')] += 0.35
-        predictions[CLASS_NAMES.index('metal')] -= 0.2  # papel NÃO é metal
-        predictions[CLASS_NAMES.index('plastic')] -= 0.15    
+    # exemplo: fibrous > 15 (tem textura), low_bright > 0.8 (opaco), Papel_reflections < 3
+    if fibrous > 15 and low_bright > 0.8 and Papel_reflections < 3:
+        predictions[CLASS_NAMES.index('Papel')] += 0.35
+        predictions[CLASS_NAMES.index('Metal')] -= 0.2  # papel NÃO é Metal
+        predictions[CLASS_NAMES.index('Plástico')] -= 0.15    
     
-    # correção para orgânico, organico tem alta variação de cor, bordas irregulares,
+    # correção para orgânico, Orgânicoo tem alta variação de cor, bordas irregulares,
     #  textura não uniforme, cores mais naturais
     if color_var > 30 and edge_irreg > 0.2 and texture_var > 8 and natural_color > 0.8:
-        predictions[CLASS_NAMES.index('organic')] += 0.35
-        predictions[CLASS_NAMES.index('paper')] -= 0.15
-        predictions[CLASS_NAMES.index('plastic')] -= 0.15
+        predictions[CLASS_NAMES.index('Orgânico')] += 0.35
+        predictions[CLASS_NAMES.index('Papel')] -= 0.15
+        predictions[CLASS_NAMES.index('Plástico')] -= 0.15
 
-    # metal tem: muito brilho, alto contraste entre claro e escuro, reflexos isolados
+    # Metal tem: muito brilho, alto contraste entre claro e escuro, reflexos isolados
     if bright_ratio > 0.15 and contrast > 50 and reflections > 2:
-        # muito provável ser metal
-        predictions[CLASS_NAMES.index('metal')] += 0.4
-        predictions[CLASS_NAMES.index('plastic')] -= 0.2
-        predictions[CLASS_NAMES.index('glass')] -= 0.2    
+        # muito provável ser Metal
+        predictions[CLASS_NAMES.index('Metal')] += 0.4
+        predictions[CLASS_NAMES.index('Plástico')] -= 0.2
+        predictions[CLASS_NAMES.index('Vidro')] -= 0.2    
     
     # se o modelo disse "vidro" mas características indicam plástico, corrige!
-    if predictions[CLASS_NAMES.index('glass')] > 0.3:
-        # caso tenha muita distorçao, muita textura áspera (>0.5), provevelmente é plastico
+    if predictions[CLASS_NAMES.index('Vidro')] > 0.3:
+        # caso tenha muita distorçao, muita textura áspera (>0.5), provevelmente é Plásticoo
         if (distortion > 0.8 or texture > 0.5):
             # faz a correção de prefictions, aumenta plástico e diminui vidro
-            predictions[CLASS_NAMES.index('plastic')] += 0.3
-            predictions[CLASS_NAMES.index('glass')] -= 0.3
+            predictions[CLASS_NAMES.index('Plástico')] += 0.3
+            predictions[CLASS_NAMES.index('Vidro')] -= 0.3
     
     # normalizar as probabilidades depois de ajustes
     predictions = np.clip(predictions, 0, 1)  # garante que não fique negativo
     predictions = predictions / np.sum(predictions)
     
-    # retorna a categoria e a confiança (exemplo: "metal", 0.85 = 85% de certeza)
+    # retorna a categoria e a confiança (exemplo: "Metal", 0.85 = 85% de certeza)
     label = CLASS_NAMES[np.argmax(predictions)]
     confidence = float(np.max(predictions))   
 

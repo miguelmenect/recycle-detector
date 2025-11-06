@@ -2,10 +2,11 @@
 import os
 import cv2
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 from classifier import load_model, predict_crop
 
 # modo atualmente, mas posso alternar entre "webcam", "imagem" e "video"
-MODE = "imagem"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
+MODE = "video"  # coloque "imagem" caso queira classificar por imagem no images_for_analysis 
                  #ou "webcam" caso queira analisar pela camera da maquina.
                  #ou analise por "video" caso queira analisar um video na pasta video_for_analysis
 
@@ -17,7 +18,7 @@ classifier_model = load_model("models/waste_classifier.h5")
 #array categorizado com informações extras educativas sobre cada tipo de lixo/objeto analizado
 EDUCATIONAL_INFO = {
     "pet_bottle": {
-        "title": "♻️ Garrafa PET",
+        "title": "Garrafa PET",
         "text": [
             "As garrafas PET são altamente recicláveis e podem ganhar novas",
             "finalidades após o descarte correto. Quando recicladas, elas podem",
@@ -28,7 +29,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "plastic": {
-        "title": "♻️ Plásticos diversos",
+        "title": "Plásticos diversos",
         "text": [
             "Plásticos, quando reciclados, podem ser reaproveitados na",
             "fabricação de brinquedos, caixas organizadoras, baldes, sacolas",
@@ -38,7 +39,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "aluminum_can": {
-        "title": "♻️ Latinhas de alumínio",
+        "title": "Latinhas de alumínio",
         "text": [
             "As latinhas de alumínio possuem uma das reciclagens mais eficientes",
             "do mundo. Elas podem retornar para a indústria e se transformarem",
@@ -48,7 +49,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "metal_sheet": {
-        "title": "♻️ Chapas de metal",
+        "title": "Chapas de metal",
         "text": [
             "Chapas de metal descartadas podem ser reaproveitadas na fabricação",
             "de peças industriais, estruturas metálicas, utensílios e ferramentas.",
@@ -58,7 +59,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "metal": {
-        "title": "♻️ Metais diversos",
+        "title": "Metais diversos",
         "text": [
             "Metais, como cobre, ferro e aço, podem ser derretidos e",
             "reutilizados infinitamente sem perder qualidade. Com a reciclagem,",
@@ -68,7 +69,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "paper": {
-        "title": "♻️ Papel",
+        "title": "Papel",
         "text": [
             "O papel reciclado pode se transformar em cadernos, caixas, papel",
             "higiênico, jornais e até artefatos decorativos. Reciclar papel reduz",
@@ -78,7 +79,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "glass_bottle": {
-        "title": "♻️ Garrafas de vidro",
+        "title": "Garrafas de vidro",
         "text": [
             "As garrafas de vidro podem ser totalmente reaproveitadas e retornarem",
             "ao ciclo como novas garrafas, potes e recipientes. Sua reciclagem",
@@ -88,7 +89,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "flat_glass": {
-        "title": "♻️ Vidros planos",
+        "title": "Vidros planos",
         "text": [
             "Vidros planos, como os encontrados em janelas e portas, podem ser",
             "reciclados em novos painéis, utensílios, mosaicos, decoração ou",
@@ -98,7 +99,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "glass": {
-        "title": "♻️ Vidros diversos",
+        "title": "Vidros diversos",
         "text": [
             "Vidro, quando encaminhados para recicladores especializados,",
             "podem ser derretidos e moldados novamente para inúmeros produtos.",
@@ -107,7 +108,7 @@ EDUCATIONAL_INFO = {
         ]
     },
     "organic": {
-        "title": "♻️ Orgânico",
+        "title": "Orgânico",
         "text": [
             "Resíduos orgânicos, apesar de não serem recicláveis industrialmente,",
             "possuem grande valor ambiental. Podem ser usados na compostagem,",
@@ -118,6 +119,27 @@ EDUCATIONAL_INFO = {
         ]
     }
 }
+
+
+def draw_text_with_pil(frame, text, position, font_size=20, color=(255, 255, 255)):
+    """Desenha texto com suporte a caracteres especiais usando PIL"""
+    # Converte BGR (OpenCV) para RGB (PIL)
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(frame_rgb)
+    draw = ImageDraw.Draw(pil_img)
+    
+    # Usa fonte padrão do sistema (ou especifique um caminho)
+    try:
+        font = ImageFont.truetype("arial.ttf", font_size)
+    except:
+        font = ImageFont.load_default()
+    
+    # Desenha o texto
+    draw.text(position, text, font=font, fill=color)
+    
+    # Converte de volta para OpenCV (BGR)
+    frame_bgr = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    return frame_bgr
 
 def analyze_object_shape(frame):
     # converte para escala de cinza
@@ -198,7 +220,7 @@ def detect_specific_object(label, frame):
         else:
             return "glass"
     
-    # papel e orgânico não precisam de detecção específica
+    # papel e orgânico não precisam de detecção especifica
     else:
         # categorias que não precisam detecção especifica
         return label
@@ -206,18 +228,18 @@ def detect_specific_object(label, frame):
 def draw_info_box(frame, info_key):
     #objeto retangular com informações educativas sobre o objeto classificado
     if info_key not in EDUCATIONAL_INFO:
-        return
+        return frame
     
     info = EDUCATIONAL_INFO[info_key]
     h, w = frame.shape[:2]
     
-    # configurações da caixa de texto
+    # configurações da caixa de texto, proporções de espaçamento, posicionamento e fonte
     margin = 10
     line_height = 20
     padding = 10
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    font_scale = 0.45
-    font_thickness = 1
+    ##font = cv2.FONT_HERSHEY_SIMPLEX
+    ##font_scale = 0.45
+    ##font_thickness = 1
     
     # calcula altura da caixa
     num_lines = len(info["text"]) + 2  # +2 para título e linha vazia
@@ -235,22 +257,43 @@ def draw_info_box(frame, info_key):
     cv2.rectangle(overlay, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), -1)
     cv2.addWeighted(overlay, 0.75, frame, 0.25, 0, frame)
     
-    # desenha borda
-    cv2.rectangle(frame, (box_x1, box_y1), (box_x2, box_y2), (0, 255, 0), 2)
+    # desenha borda preta
+    cv2.rectangle(frame, (box_x1, box_y1), (box_x2, box_y2), (0, 0, 0), 2)
     
+    # converte frame para PIL para desenhar texto com acentos e cecidilha (padrão UTF-8)
+    frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    pil_img = Image.fromarray(frame_rgb)
+    draw = ImageDraw.Draw(pil_img)
+
+    # carrega fontes
+    try:
+        font_title = ImageFont.truetype("arial.ttf", 18)
+        font_text = ImageFont.truetype("arial.ttf", 14)
+    except:
+        try:
+            font_title = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 18)
+            font_text = ImageFont.truetype("C:/Windows/Fonts/arial.ttf", 14)
+        except:
+            font_title = ImageFont.load_default()
+            font_text = ImageFont.load_default()
+
     # desenha título (em verde)
-    y_offset = box_y1 + padding + line_height
-    cv2.putText(frame, info["title"], (box_x1 + padding, y_offset),
-                font, font_scale + 0.1, (0, 255, 0), font_thickness + 1, cv2.LINE_AA)
+    y_offset = box_y1 + padding + 5
+    draw.text((box_x1 + padding, y_offset), info["title"], 
+              font=font_title, fill=(0, 255, 0))
     
     # pula uma linha
     y_offset += line_height + 5
     
     # escreve o texto em branco
     for line in info["text"]:
-        cv2.putText(frame, line, (box_x1 + padding, y_offset),
-                    font, font_scale, (255, 255, 255), font_thickness, cv2.LINE_AA)
+        draw.text((box_x1 + padding, y_offset), line,
+                  font=font_text, fill=(255, 255, 255))
         y_offset += line_height
+
+    # converte de volta para OpenCV (BGR)
+    frame = cv2.cvtColor(np.array(pil_img), cv2.COLOR_RGB2BGR)
+    return frame #retorna frame com as novas modificações de texto
 
 def main():
     if MODE == "webcam": # se for webcam ele abre a camera
@@ -295,7 +338,7 @@ def main():
             print(f"Erro: Vídeo não encontrado em: data\video_for_analysis\video.mp4") #caso de erro
             return
         process_video("data\\video_for_analysis\\video.mp4")# aqui ele roda o video   
-         
+
         if key == ord('q') or key == 27:  #se "q" ou "esc" for pressionado encerra
             cv2.destroyAllWindows()
             return #retorna nada
@@ -324,8 +367,11 @@ def process_video(video_path):
         classify_and_show(frame)
         #se "q" ou ""1" for pressionado sai do loop e encerra
         if cv2.waitKey(1) & 0xFF == ord('q'):
+            break        
+        # se a janela for fechada, sai do loop
+        if cv2.getWindowProperty("Descrição de lixo", cv2.WND_PROP_VISIBLE) < 1:
             break
-    
+
     cap.release()
     cv2.destroyAllWindows()
 
@@ -342,12 +388,17 @@ def classify_and_show(frame):
 
     # desenha o texto na imagem na posição (10, 30)
     # parametros: imagem, texto, posição, fonte, tamanho 1, cor verde, espessura 2, tipo de linha
-    text = f"{label} ({confidence*100:.2f})"
+    text = f"{label} ({confidence*100:.2f}%)"
     cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                 1, (0, 255, 0), 2, cv2.LINE_AA)
 
-    # desenha caixa de informação educativa (baseada no objeto específico)
-    draw_info_box(frame, specific_object)
+    # agora a função retorna o frame modificado
+    frame = draw_info_box(frame, specific_object)
+
+    # define tamanho fixo para exibição do frame
+    CONTENT_WIDTH = 900
+    CONTENT_HEIGHT = 650
+    frame = cv2.resize(frame, (CONTENT_WIDTH, CONTENT_HEIGHT))
 
     # tittulo do frame da imagem
     cv2.imshow("Descrição de lixo", frame)
