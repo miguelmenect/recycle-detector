@@ -318,7 +318,7 @@ def main():
 
     elif MODE == "imagem": #caso de imagem estatica ele abre a imagem inserida na pasta images for analysis
         # abaixo o caminho da imagem que quero analisar/classificar
-        frame = cv2.imread("data\\images_for_analysis\\image3.png")
+        frame = cv2.imread("data\\images_for_analysis\\image.png")
         if frame is None:
             print("Erro: imagem não encontrada!")
             return
@@ -388,7 +388,7 @@ def classify_and_show(frame):
 
     # desenha o texto na imagem na posição (10, 30)
     # parametros: imagem, texto, posição, fonte, tamanho 1, cor verde, espessura 2, tipo de linha
-    text = f"{label} ({confidence*100:.2f}%)"
+    text = f"{label} [{confidence*100:.2f}%]"
     cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
                 1, (0, 255, 0), 2, cv2.LINE_AA)
 
