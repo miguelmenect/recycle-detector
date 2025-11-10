@@ -296,26 +296,40 @@ def draw_info_box(frame, info_key):
     return frame #retorna frame com as novas modificações de texto
 
 def main():
-    if MODE == "webcam": # se for webcam ele abre a camera
+    if MODE == "webcam":
+        # inicializa a webcam
         cap = cv2.VideoCapture(0)
+        
+        # verifica se a webcam abriu corretamente
         if not cap.isOpened():
-            print("Erro: webcam não encontrada!") #caso de erro.
+            print("Erro: Não foi possível acessar a webcam!")
             return
-
+            
+        # define resolução da webcam
+        cap.set(cv2.CAP_PROP_FRAME_WIDTH, 640)
+        cap.set(cv2.CAP_PROP_FRAME_HEIGHT, 480)
+        
+        print("Webcam iniciada. Pressione 'q' para sair.")
+        
         while True:
+            # captura frame da webcam
             ret, frame = cap.read()
+            
             if not ret:
+                print("Erro: Não foi possível capturar o frame!")
                 break
-
+                
+            # processa e mostra o frame
             classify_and_show(frame)
             
-            if key == ord('q') or key == 27:  #se "q" ou "esc" for pressionado encerra
-                cv2.destroyAllWindows()
-                break #break para sair do loop  de camera
-
+            # verifica se a tecla 'q' foi pressionada
+            if cv2.waitKey(1) & 0xFF == ord('q'):
+                break
+        
+        # libera recursos
         cap.release()
         cv2.destroyAllWindows()
-
+    
     elif MODE == "imagem": #caso de imagem estatica ele abre a imagem inserida na pasta images for analysis
         # abaixo o caminho da imagem que quero analisar/classificar
         frame = cv2.imread("data\\images_for_analysis\\image.png")
@@ -377,31 +391,30 @@ def process_video(video_path):
 
 ##classifica imagem e mostra o resultado na tela
 def classify_and_show(frame):
-    # ele envia a imagem para o modelo classificar
-    # e retorna: label (categoria) e confirmação (confiança de 0 a 1)
-    label, confidence = predict_crop(classifier_model, frame)
-    print(f"Categoria: {label}, Confirmação: {confidence*100:.2f}%")
-
-    #identifica o objeto específico baseado na categoria e na forma
-    specific_object = detect_specific_object(label, frame)
-    print(f"Objeto analisado é: {specific_object}")
-
-    # desenha o texto na imagem na posição (10, 30)
-    # parametros: imagem, texto, posição, fonte, tamanho 1, cor verde, espessura 2, tipo de linha
-    text = f"{label} [{confidence*100:.2f}%]"
-    cv2.putText(frame, text, (10, 30), cv2.FONT_HERSHEY_SIMPLEX,
-                1, (0, 255, 0), 2, cv2.LINE_AA)
-
-    # agora a função retorna o frame modificado
-    frame = draw_info_box(frame, specific_object)
-
-    # define tamanho fixo para exibição do frame
-    CONTENT_WIDTH = 900
-    CONTENT_HEIGHT = 650
-    frame = cv2.resize(frame, (CONTENT_WIDTH, CONTENT_HEIGHT))
-
-    # tittulo do frame da imagem
-    cv2.imshow("Descrição de lixo", frame)
+    try:
+        # classifica a imagem
+        label, confidence = predict_crop(classifier_model, frame)
+        
+        # identifica objeto específico
+        specific_object = detect_specific_object(label, frame)
+        
+        # adiciona texto na imagem
+        text = f"{specific_object} [{confidence*100:.2f}%]"
+        cv2.putText(frame, text, (10, 30), 
+                   cv2.FONT_HERSHEY_SIMPLEX, 1, 
+                   (0, 255, 0), 2, cv2.LINE_AA)
+        
+        # adiciona caixa de informações
+        frame = draw_info_box(frame, specific_object)
+        
+        # redimensiona para tamanho fixo
+        frame = cv2.resize(frame, (900, 650))
+        
+        # mostra o frame
+        cv2.imshow("Descrição de lixo", frame)
+        
+    except Exception as e:
+        print(f"Erro ao processar frame: {e}")
 
 if __name__ == "__main__":
     main()
